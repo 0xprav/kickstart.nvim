@@ -726,7 +726,7 @@ require('lazy').setup {
     priority = 1000, -- make sure to load this before all the other start plugins
     config = function()
       -- Load the colorscheme here
-      vim.cmd.colorscheme 'tokyonight-night'
+      vim.cmd.colorscheme 'tokyonight-moon'
 
       -- You can configure highlights by doing something like
       vim.cmd.hi 'Comment gui=none'
@@ -834,7 +834,7 @@ require('tokyonight').setup {
     sidebars = 'dark', -- style for sidebars, see below
     floats = 'dark', -- style for floating windows
   },
-  sidebars = { 'qf', 'help' }, -- Set a darker background on sidebar-like windows. For example: `["qf", "vista_kind", "terminal", "packer"]`
+  sidebars = { 'qf', 'help' }, -- Set a darker background on sidebar-like windows. For example::verbose map E `["qf", "vista_kind", "terminal", "packer"]`
   day_brightness = 0.3, -- Adjusts the brightness of the colors of the **Day** style. Number between 0 and 1, from dull to vibrant colors
   hide_inactive_statusline = false, -- Enabling this option, will hide inactive statuslines and replace them with a thin border instead. Should work with the standard **StatusLine** and **LuaLine**.
   dim_inactive = false, -- dims inactive windows
@@ -851,6 +851,8 @@ require('tokyonight').setup {
   ---@param colors ColorScheme
   on_highlights = function(highlights, colors) end,
 }
-
+vim.api.nvim_create_user_command('E', 'Explore', {})
+require('nvim-surround').setup()
+require('live-server').setup()
 -- The line beneath this is called `modeline`. See `:help modeline`
 -- vim: ts=2 sts=2 sw=2 et
