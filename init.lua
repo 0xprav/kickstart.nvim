@@ -271,16 +271,21 @@ require('lazy').setup {
     'folke/which-key.nvim',
     event = 'VeryLazy', -- Sets the loading event to 'VeryLazy'
     config = function() -- This is the function that runs, AFTER loading
-      require('which-key').setup()
+      --require('which-key').setup()
 
       -- Document existing key chains
-      require('which-key').register {
-        ['<leader>c'] = { name = '[C]ode', _ = 'which_key_ignore' },
-        ['<leader>d'] = { name = '[D]ocument', _ = 'which_key_ignore' },
-        ['<leader>r'] = { name = '[R]ename', _ = 'which_key_ignore' },
-        ['<leader>s'] = { name = '[S]earch', _ = 'which_key_ignore' },
-        ['<leader>w'] = { name = '[W]orkspace', _ = 'which_key_ignore' },
-      }
+      --require('which-key').register {
+      --  { '<leader>c', group = '[C]ode' },
+      --  { '<leader>c_', hidden = true },
+      --  { '<leader>d', group = '[D]ocument' },
+      --  { '<leader>d_', hidden = true },
+      --  { '<leader>r', group = '[R]ename' },
+      --  { '<leader>r_', hidden = true },
+      --  { '<leader>s', group = '[S]earch' },
+      --  { '<leader>s_', hidden = true },
+      --  { '<leader>w', group = '[W]orkspace' },
+      --  { '<leader>w_', hidden = true },
+      --}
     end,
   },
 
@@ -821,7 +826,7 @@ require('tokyonight').setup {
   -- or leave it empty to use the default settings
   style = 'storm', -- The theme comes in three styles, `storm`, `moon`, a darker variant `night` and `day`
   light_style = 'day', -- The theme is used when the background is set to light
-  transparent = false, -- Enable this to disable setting the background color
+  transparent = true, -- Enable this to disable setting the background color
   terminal_colors = true, -- Configure the colors used when opening a `:terminal` in [Neovim](https://github.com/neovim/neovim)
   styles = {
     -- Style to be applied to different syntax groups
