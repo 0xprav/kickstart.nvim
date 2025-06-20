@@ -136,111 +136,157 @@ require('lazy').setup {
   },
 
   {
-    {
-      'neovim/nvim-lspconfig',
-      event = { 'BufReadPre', 'BufNewFile' },
-      dependencies = {
-        'williamboman/mason.nvim',
-        'williamboman/mason-lspconfig.nvim',
-        'WhoIsSethDaniel/mason-tool-installer.nvim',
-        'hrsh7th/cmp-nvim-lsp',
-        { 'j-hui/fidget.nvim', opts = {} },
-      },
-      config = function()
-        -- 1) nvim-cmp capabilities
-        local caps = vim.lsp.protocol.make_client_capabilities()
-        caps = vim.tbl_deep_extend('force', caps, require('cmp_nvim_lsp').default_capabilities())
+    'neovim/nvim-lspconfig',
+    event = { 'BufReadPre', 'BufNewFile' },
+    dependencies = {
+      'williamboman/mason.nvim',
+      'williamboman/mason-lspconfig.nvim',
+      'WhoIsSethDaniel/mason-tool-installer.nvim',
+      'hrsh7th/cmp-nvim-lsp',
+      { 'j-hui/fidget.nvim', opts = {} },
+    },
+    config = function()
+      ---------------------------------------------------------------------------
+      -- 0. Shared LSP-CMP capabilities ----------------------------------------
+      ---------------------------------------------------------------------------
+      local caps = vim.tbl_deep_extend('force', vim.lsp.protocol.make_client_capabilities(), require('cmp_nvim_lsp').default_capabilities())
 
-        -- 2) Mason & ensure tools + servers
-        require('mason').setup()
-        require('mason-tool-installer').setup {
-          ensure_installed = {
-            'stylua', -- lua formatter
-            'pyright', -- python LSP
-            'lua_ls', -- lua LSP
-            -- add other formatters/linters here
+      ---------------------------------------------------------------------------
+      -- 1. Mason + mason-tool-installer ---------------------------------------
+      ---------------------------------------------------------------------------
+      require('mason').setup()
+      require('mason-tool-installer').setup {
+        ensure_installed = {
+          -- ── LSP servers ────────────────────────────────────────────────────
+          'pyright', -- Python
+          'lua_ls', -- Lua
+          'tailwindcss', -- Tailwind / class completion
+          'cssls', -- *.css / *.scss
+          'emmet_ls', -- HTML / SVG snippets
+          'svelte', -- .svelte files
+          -- ── linters / formatters (optional) ───────────────────────────────
+          -- 'stylelint', 'stylelint-lsp',   -- enable if you want CSS linting
+          'stylua',
+        },
+      }
+
+      ---------------------------------------------------------------------------
+      -- 2. Per-server settings -------------------------------------------------
+      ---------------------------------------------------------------------------
+      local servers = {
+        lua_ls = {
+          settings = {
+            Lua = {
+              runtime = { version = 'LuaJIT' },
+              workspace = {
+                checkThirdParty = false,
+                library = vim.api.nvim_get_runtime_file('', true),
+              },
+              completion = { callSnippet = 'Replace' },
+            },
           },
-        }
+        },
 
-        local servers = {
-          -- add LSP servers & their server-specific settings here
-          lua_ls = {
-            settings = {
-              Lua = {
-                runtime = { version = 'LuaJIT' },
-                workspace = {
-                  checkThirdParty = false,
-                  library = vim.api.nvim_get_runtime_file('', true),
-                },
-                completion = { callSnippet = 'Replace' },
+        pyright = {},
+
+        -- Tailwind: search for classes in ANY string (attr('class', "..."), etc.)
+        tailwindcss = {
+          filetypes = {
+            'html',
+            'css',
+            'scss',
+            'javascript',
+            'javascriptreact',
+            'typescript',
+            'typescriptreact',
+            'svelte',
+            'vue',
+          },
+          init_options = {
+            userLanguages = { svelte = 'html' },
+            experimental = {
+              classRegex = {
+                -- class="…", className="…", :class="…" etc.
+                { 'class%s*[%:%=]%s*["\']([^"\']+)["\']' },
+
+                -- tw`…`
+                { 'tw`([^`]+)`' },
+
+                -- d3.attr("class", "…")
+                { 'attr%(%s*["\']class["\']%s*,%s*["\']([^"\']+)["\']' },
               },
             },
           },
-          pyright = {},
-          -- rust_analyzer = {}, gopls = {}, etc.
-        }
+        },
 
-        require('mason-lspconfig').setup {
-          ensure_installed = vim.tbl_keys(servers),
-          handlers = {
-            -- default handler for all servers
-            function(server_name)
-              local opts = vim.tbl_deep_extend('force', {
-                capabilities = caps,
-              }, servers[server_name] or {})
-              require('lspconfig')[server_name].setup(opts)
-            end,
-          },
-        }
+        tsserver = {}, -- D3 / SVG attr completions (needs @types/d3*)
 
-        -- 3) quick CursorHold for diagnostics
-        vim.o.updatetime = 250
+        cssls = {},
+        emmet_ls = {},
+        svelte = {},
 
-        -- 4) common LspAttach mappings & highlights
-        vim.api.nvim_create_autocmd('LspAttach', {
-          group = vim.api.nvim_create_augroup('user-lsp-attach', { clear = true }),
-          callback = function(ev)
-            local buf = ev.buf
-            local map = function(keys, fn, desc)
-              vim.keymap.set('n', keys, fn, { buffer = buf, desc = 'LSP: ' .. desc })
-            end
+        -- stylelint_lsp = { settings = { stylelintplus = { autoFixOnSave = true } } },
+      }
 
-            map('gd', require('telescope.builtin').lsp_definitions, '[G]oto [D]efinition')
-            map('gr', require('telescope.builtin').lsp_references, '[G]oto [R]eferences')
-            map('gI', require('telescope.builtin').lsp_implementations, '[G]oto [I]mplementation')
-            map('<leader>D', require('telescope.builtin').lsp_type_definitions, 'Type [D]efinition')
-            map('<leader>ds', require('telescope.builtin').lsp_document_symbols, '[D]ocument [S]ymbols')
-            map('<leader>ws', require('telescope.builtin').lsp_dynamic_workspace_symbols, '[W]orkspace [S]ymbols')
-            map('<leader>rn', vim.lsp.buf.rename, '[R]e[n]ame')
-            map('<leader>ca', vim.lsp.buf.code_action, '[C]ode [A]ction')
-            map('K', vim.lsp.buf.hover, 'Hover Documentation')
-            map('gD', vim.lsp.buf.declaration, '[G]oto [D]eclaration')
-            map('<leader>e', vim.diagnostic.open_float, 'Show Line Diagnostics')
-
-            -- auto diagnostic float on CursorHold
-            vim.api.nvim_create_autocmd('CursorHold', {
-              buffer = buf,
-              callback = function()
-                vim.diagnostic.open_float(nil, { focus = false })
-              end,
-            })
-
-            -- documentHighlight
-            local client = vim.lsp.get_client_by_id(ev.data.client_id)
-            if client and client.server_capabilities.documentHighlightProvider then
-              vim.api.nvim_create_autocmd({ 'CursorHold', 'CursorHoldI' }, {
-                buffer = buf,
-                callback = vim.lsp.buf.document_highlight,
-              })
-              vim.api.nvim_create_autocmd({ 'CursorMoved', 'CursorMovedI' }, {
-                buffer = buf,
-                callback = vim.lsp.buf.clear_references,
-              })
-            end
+      ---------------------------------------------------------------------------
+      -- 3. Attach servers via mason-lspconfig ----------------------------------
+      ---------------------------------------------------------------------------
+      require('mason-lspconfig').setup {
+        ensure_installed = vim.tbl_keys(servers),
+        handlers = {
+          function(name)
+            local opts = vim.tbl_deep_extend('force', { capabilities = caps }, servers[name] or {})
+            require('lspconfig')[name].setup(opts)
           end,
-        })
-      end,
-    },
+        },
+      }
+
+      ---------------------------------------------------------------------------
+      -- 4. Misc: faster diagnostic pop-ups, keymaps, highlights  --------------
+      ---------------------------------------------------------------------------
+      vim.o.updatetime = 250
+
+      vim.api.nvim_create_autocmd('LspAttach', {
+        group = vim.api.nvim_create_augroup('user-lsp-attach', { clear = true }),
+        callback = function(ev)
+          local buf = ev.buf
+          local map = function(keys, fn, desc)
+            vim.keymap.set('n', keys, fn, { buffer = buf, desc = 'LSP: ' .. desc })
+          end
+
+          map('gd', require('telescope.builtin').lsp_definitions, '[G]oto [D]efinition')
+          map('gr', require('telescope.builtin').lsp_references, '[G]oto [R]eferences')
+          map('gI', require('telescope.builtin').lsp_implementations, '[G]oto [I]mplementation')
+          map('<leader>D', require('telescope.builtin').lsp_type_definitions, 'Type [D]efinition')
+          map('<leader>ds', require('telescope.builtin').lsp_document_symbols, '[D]ocument [S]ymbols')
+          map('<leader>ws', require('telescope.builtin').lsp_dynamic_workspace_symbols, '[W]orkspace [S]ymbols')
+          map('<leader>rn', vim.lsp.buf.rename, '[R]e[n]ame')
+          map('<leader>ca', vim.lsp.buf.code_action, '[C]ode [A]ction')
+          map('K', vim.lsp.buf.hover, 'Hover Documentation')
+          map('gD', vim.lsp.buf.declaration, '[G]oto [D]eclaration')
+          map('<leader>e', vim.diagnostic.open_float, 'Line Diagnostics')
+
+          vim.api.nvim_create_autocmd('CursorHold', {
+            buffer = buf,
+            callback = function()
+              vim.diagnostic.open_float(nil, { focus = false })
+            end,
+          })
+
+          local client = vim.lsp.get_client_by_id(ev.data.client_id)
+          if client and client.server_capabilities.documentHighlightProvider then
+            vim.api.nvim_create_autocmd({ 'CursorHold', 'CursorHoldI' }, {
+              buffer = buf,
+              callback = vim.lsp.buf.document_highlight,
+            })
+            vim.api.nvim_create_autocmd({ 'CursorMoved', 'CursorMovedI' }, {
+              buffer = buf,
+              callback = vim.lsp.buf.clear_references,
+            })
+          end
+        end,
+      })
+    end,
   },
   -- NOTE: Plugins can specify dependencies.
   --
@@ -581,8 +627,55 @@ vim.keymap.set('n', '<C-w>l', function()
     vim.cmd 'wincmd l'
   end
 end, { noremap = true, silent = true })
-vim.opt.termguicolors = false
 vim.cmd 'hi clear' -- clears all highlights
 
 -- The line beneath this is called `modeline`. See `:help modeline`
 -- vim: ts=2 sts=2 sw=2 et
+-- require('idletoes').setup() --for themeing made in custom
+--
+vim.opt.termguicolors = true -- enable true-colour support
+
+local palette = {
+  ['0'] = '#323232',
+  ['1'] = '#d25252',
+  ['2'] = '#7fe173',
+  ['3'] = '#ffc66d',
+  ['4'] = '#4099ff',
+  ['5'] = '#f680ff',
+  ['6'] = '#bed6ff',
+  ['7'] = '#eeeeec',
+  ['8'] = '#535353',
+  ['9'] = '#f07070',
+  ['10'] = '#9dff91',
+  ['11'] = '#ffe48b',
+  ['12'] = '#5eb7f7',
+  ['13'] = '#ff9dff',
+  ['14'] = '#dcf4ff',
+  ['15'] = '#ffffff',
+  background = '#323232',
+  foreground = '#ffffff',
+  cursor_bg = '#d6d6d6',
+  cursor_fg = '#000000',
+  selection_bg = '#5b5b5b',
+  selection_fg = '#000000',
+}
+
+-- apply the 16 terminal colours (used by :terminal and some plugins)
+for i = 0, 15 do
+  vim.g['terminal_color_' .. i] = palette[tostring(i)]
+end
+
+-- ─── Core UI highlight groups ──────────────────────────────────────────────
+local set = vim.api.nvim_set_hl
+set(0, 'Normal', { fg = palette.foreground, bg = palette.background })
+set(0, 'Cursor', { fg = palette.cursor_fg, bg = palette.cursor_bg })
+set(0, 'CursorLine', { bg = '#3a3a3a' })
+set(0, 'CursorColumn', { bg = '#3a3a3a' })
+set(0, 'Visual', { fg = palette.selection_fg, bg = '#ffe48b' })
+set(0, 'VisualNOS', { fg = palette.selection_fg, bg = palette.selection_bg })
+
+-- optional: make floating windows and sidebars blend in
+set(0, 'NormalFloat', { fg = palette.foreground, bg = palette.background })
+set(0, 'FloatBorder', { fg = palette['4'], bg = palette.background })
+
+vim.opt.colorcolumn = '80' -- init.lua
